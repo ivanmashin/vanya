@@ -8,13 +8,21 @@ import (
 )
 
 func main() {
+	var (
+		rootDir string
+		err     error
+	)
+
 	args := flag.Args()
 	if len(args) != 1 {
-		log.Fatalln("invalid number of arguments (exactly one positional argument is required: package path containing config.go source file)")
+		rootDir, err = os.Getwd()
+		if err != nil {
+			log.Fatalln(err)
+		}
 	}
 
-	rootDir := os.Args[1]
-	err := configs.Generate(rootDir)
+	rootDir = os.Args[1]
+	err = configs.Generate(rootDir)
 	if err != nil {
 		log.Fatalln(err)
 	}
