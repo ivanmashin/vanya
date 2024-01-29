@@ -7,7 +7,7 @@
 //go:build !vanya
 // +build !vanya
 
-package test_data
+package multiple_objs
 
 import "github.com/ivanmashin/vanya/pkg/configs"
 

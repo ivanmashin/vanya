@@ -1,7 +1,7 @@
 //go:build vanya
 // +build vanya
 
-package test_data
+package multiple_objs
 
 import (
 	base "github.com/ivanmashin/vanya"

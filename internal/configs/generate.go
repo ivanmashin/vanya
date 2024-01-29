@@ -361,6 +361,10 @@ func (f *fileGen) generateFrame() error {
 }
 
 func (f *fileGen) generateConfig() error {
+	if len(f.objects) == 1 {
+		return f.generateConfigSingleObject()
+	}
+
 	fields := 1 + len(f.objects)*2 // = 1 embeddingField + (1 field + 1 space)*len(objects)
 	fieldList := make([]*ast.Field, fields)
 	fieldList[0] = &ast.Field{
@@ -411,6 +415,48 @@ func (f *fileGen) generateConfig() error {
 	return nil
 }
 
+func (f *fileGen) generateConfigSingleObject() error {
+	cfgObj := f.objects[0]
+
+	genDecl := cfgObj.(*ast.GenDecl)
+	spec := genDecl.Specs[0].(*ast.TypeSpec)
+
+	spec.Name = ast.NewIdent("Config")
+
+	structSpec := spec.Type.(*ast.StructType)
+	fieldList := []*ast.Field{
+		{
+			Type: &ast.SelectorExpr{
+				X:   ast.NewIdent("configs"),
+				Sel: ast.NewIdent("Embedding"),
+			},
+		},
+		{
+			Type: ast.NewIdent(""),
+		},
+	}
+
+	structSpec.Fields.List = append(fieldList, structSpec.Fields.List...)
+
+	if len(structSpec.Fields.List) == 2 {
+		return errors.New("received single empty struct")
+	}
+
+	for i := 2; i < len(structSpec.Fields.List); i++ {
+		field := structSpec.Fields.List[i]
+		field.Tag = &ast.BasicLit{
+			Value: fmt.Sprintf("`mapstructure:\"%s\"`", toSnakeCase(field.Names[0].Name)),
+		}
+	}
+
+	err := printer.Fprint(f.buf, f.pkg.Fset, cfgObj)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 const constructor = `
 func NewConfig(opts ...configs.Option) (Config, error) {
 	c := NewDefaultConfig()
@@ -446,6 +492,18 @@ func NewDefaultConfig() Config {
 }
 `
 
+const defaultConfigSingleObjTemplate = `
+func NewDefaultConfig() Config {
+	return Config{
+		Embedding: configs.Embedding{},
+		{{ range . }}
+		{{ range .Defaults }}{{ . }},
+		{{ end }}
+		{{ end }}
+	}
+}
+`
+
 type templateData struct {
 	Key      string
 	Type     string
@@ -453,6 +511,11 @@ type templateData struct {
 }
 
 func (f *fileGen) generateDefaultConstructor() error {
+	cfgTemplate := defaultConfigTemplate
+	if len(f.objects) == 1 {
+		cfgTemplate = defaultConfigSingleObjTemplate
+	}
+
 	data := make([]templateData, 0)
 
 	for i, obj := range f.objects {
@@ -491,7 +554,7 @@ func (f *fileGen) generateDefaultConstructor() error {
 		)
 	}
 
-	err := template.Must(template.New("value").Parse(defaultConfigTemplate)).Execute(
+	err := template.Must(template.New("value").Parse(cfgTemplate)).Execute(
 		f.buf, data,
 	)
 	if err != nil {
