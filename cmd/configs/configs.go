@@ -14,14 +14,18 @@ func main() {
 	)
 
 	args := flag.Args()
-	if len(args) != 1 {
+	switch len(args) {
+	case 0:
 		rootDir, err = os.Getwd()
 		if err != nil {
 			log.Fatalln(err)
 		}
+	case 1:
+		rootDir = os.Args[1]
+	default:
+		log.Fatalln("invalid number of arguments (exactly one positional argument is required: package path containing config.go source file)")
 	}
 
-	rootDir = os.Args[1]
 	err = configs.Generate(rootDir)
 	if err != nil {
 		log.Fatalln(err)
